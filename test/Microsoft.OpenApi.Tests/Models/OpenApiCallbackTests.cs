@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.OpenApi.Expressions;
 using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Models.References;
 using Microsoft.OpenApi.Writers;
 using VerifyXunit;
 using Xunit;
@@ -35,7 +36,7 @@ namespace Microsoft.OpenApi.Tests.Models
                                     {
                                         Schema = new()
                                         {
-                                            Type = "object"
+                                            Type = JsonSchemaType.Object
                                         }
                                     }
                                 }
@@ -53,13 +54,10 @@ namespace Microsoft.OpenApi.Tests.Models
             }
         };
 
+        public static OpenApiCallbackReference CallbackProxy = new(ReferencedCallback, "simpleHook");
+
         public static OpenApiCallback ReferencedCallback = new()
         {
-            Reference = new()
-            {
-                Type = ReferenceType.Callback,
-                Id = "simpleHook",
-            },
             PathItems =
             {
                 [RuntimeExpression.Build("$request.body#/url")]
@@ -78,7 +76,7 @@ namespace Microsoft.OpenApi.Tests.Models
                                     {
                                         Schema = new()
                                         {
-                                            Type = "object"
+                                            Type = JsonSchemaType.Object
                                         }
                                     }
                                 }
@@ -99,7 +97,7 @@ namespace Microsoft.OpenApi.Tests.Models
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task SerializeAdvancedCallbackAsV3JsonWorks(bool produceTerseOutput)
+        public async Task SerializeAdvancedCallbackAsV3JsonWorksAsync(bool produceTerseOutput)
         {
             // Arrange
             var outputStringWriter = new StringWriter(CultureInfo.InvariantCulture);
@@ -116,14 +114,14 @@ namespace Microsoft.OpenApi.Tests.Models
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task SerializeReferencedCallbackAsV3JsonWorks(bool produceTerseOutput)
+        public async Task SerializeReferencedCallbackAsV3JsonWorksAsync(bool produceTerseOutput)
         {
             // Arrange
             var outputStringWriter = new StringWriter(CultureInfo.InvariantCulture);
             var writer = new OpenApiJsonWriter(outputStringWriter, new() { Terse = produceTerseOutput });
 
             // Act
-            ReferencedCallback.SerializeAsV3(writer);
+            CallbackProxy.SerializeAsV3(writer);
             writer.Flush();
 
             // Assert
@@ -133,14 +131,14 @@ namespace Microsoft.OpenApi.Tests.Models
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public async Task SerializeReferencedCallbackAsV3JsonWithoutReferenceWorks(bool produceTerseOutput)
+        public async Task SerializeReferencedCallbackAsV3JsonWithoutReferenceWorksAsync(bool produceTerseOutput)
         {
             // Arrange
             var outputStringWriter = new StringWriter(CultureInfo.InvariantCulture);
             var writer = new OpenApiJsonWriter(outputStringWriter, new() { Terse = produceTerseOutput });
 
             // Act
-            ReferencedCallback.SerializeAsV3WithoutReference(writer);
+            ReferencedCallback.SerializeAsV3(writer);
             writer.Flush();
 
             // Assert

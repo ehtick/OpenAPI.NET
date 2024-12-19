@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using FluentAssertions;
 using Microsoft.OpenApi.Extensions;
 using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Models.References;
 using Xunit;
 
 namespace Microsoft.OpenApi.Tests.Models
@@ -47,7 +48,7 @@ namespace Microsoft.OpenApi.Tests.Models
                     {
                         Schema = new()
                         {
-                            Type = "number",
+                            Type = JsonSchemaType.Number,
                             Minimum = 5,
                             Maximum = 10
                         }
@@ -56,14 +57,7 @@ namespace Microsoft.OpenApi.Tests.Models
             },
             Responses = new()
             {
-                ["200"] = new()
-                {
-                    Reference = new()
-                    {
-                        Id = "response1",
-                        Type = ReferenceType.Response
-                    }
-                },
+                ["200"] = new OpenApiResponseReference("response1", hostDocument: null),
                 ["400"] = new()
                 {
                     Content = new Dictionary<string, OpenApiMediaType>
@@ -72,7 +66,7 @@ namespace Microsoft.OpenApi.Tests.Models
                         {
                             Schema = new()
                             {
-                                Type = "number",
+                                Type = JsonSchemaType.Number,
                                 Minimum = 5,
                                 Maximum = 10
                             }
@@ -87,26 +81,15 @@ namespace Microsoft.OpenApi.Tests.Models
                     Url = "http://server.com",
                     Description = "serverDescription"
                 }
-            }
+            },
+            Annotations = new Dictionary<string, object> { { "key1", "value1" }, { "key2", 2 } },
         };
 
         private static readonly OpenApiOperation _advancedOperationWithTagsAndSecurity = new()
         {
             Tags = new List<OpenApiTag>
             {
-                new()
-                {
-                    Name = "tagName1",
-                    Description = "tagDescription1",
-                },
-                new()
-                {
-                    Reference = new()
-                    {
-                        Id = "tagId1",
-                        Type = ReferenceType.Tag
-                    }
-                }
+                new OpenApiTagReference("tagId1", null)
             },
             Summary = "summary1",
             Description = "operationDescription",
@@ -139,7 +122,7 @@ namespace Microsoft.OpenApi.Tests.Models
                     {
                         Schema = new()
                         {
-                            Type = "number",
+                            Type = JsonSchemaType.Number,
                             Minimum = 5,
                             Maximum = 10
                         }
@@ -148,14 +131,7 @@ namespace Microsoft.OpenApi.Tests.Models
             },
             Responses = new()
             {
-                ["200"] = new()
-                {
-                    Reference = new()
-                    {
-                        Id = "response1",
-                        Type = ReferenceType.Response
-                    }
-                },
+                ["200"] = new OpenApiResponseReference("response1", hostDocument: null),
                 ["400"] = new()
                 {
                     Content = new Dictionary<string, OpenApiMediaType>
@@ -164,7 +140,7 @@ namespace Microsoft.OpenApi.Tests.Models
                         {
                             Schema = new()
                             {
-                                Type = "number",
+                                Type = JsonSchemaType.Number,
                                 Minimum = 5,
                                 Maximum = 10
                             }
@@ -176,22 +152,8 @@ namespace Microsoft.OpenApi.Tests.Models
             {
                 new()
                 {
-                    [new()
-                    {
-                        Reference = new()
-                        {
-                            Id = "securitySchemeId1",
-                            Type = ReferenceType.SecurityScheme
-                        }
-                    }] = new List<string>(),
-                    [new()
-                    {
-                        Reference = new()
-                        {
-                            Id = "securitySchemeId2",
-                            Type = ReferenceType.SecurityScheme
-                        }
-                    }] = new List<string>
+                    [new OpenApiSecuritySchemeReference("securitySchemeId1", hostDocument: null)] = new List<string>(),
+                    [new OpenApiSecuritySchemeReference("securitySchemeId2", hostDocument: null)] = new List<string>
                     {
                         "scopeName1",
                         "scopeName2"
@@ -224,7 +186,7 @@ namespace Microsoft.OpenApi.Tests.Models
                         Required = true,
                         Schema = new()
                         {
-                            Type = "string"
+                            Type = JsonSchemaType.String
                         }
                     }
                 },
@@ -241,12 +203,12 @@ namespace Microsoft.OpenApi.Tests.Models
                                     ["name"] = new()
                                     {
                                         Description = "Updated name of the pet",
-                                        Type = "string"
+                                        Type = JsonSchemaType.String
                                     },
                                     ["status"] = new()
                                     {
                                         Description = "Updated status of the pet",
-                                        Type = "string"
+                                        Type = JsonSchemaType.String
                                     }
                                 },
                                 Required = new HashSet<string>
@@ -264,12 +226,12 @@ namespace Microsoft.OpenApi.Tests.Models
                                     ["name"] = new()
                                     {
                                         Description = "Updated name of the pet",
-                                        Type = "string"
+                                        Type = JsonSchemaType.String
                                     },
                                     ["status"] = new()
                                     {
                                         Description = "Updated status of the pet",
-                                        Type = "string"
+                                        Type = JsonSchemaType.String
                                     }
                                 },
                                 Required = new HashSet<string>
@@ -393,7 +355,6 @@ namespace Microsoft.OpenApi.Tests.Models
                 """
                 {
                   "tags": [
-                    "tagName1",
                     "tagId1"
                   ],
                   "summary": "summary1",
@@ -660,9 +621,9 @@ namespace Microsoft.OpenApi.Tests.Models
                       "description": "description2",
                       "required": true,
                       "schema": {
+                        "type": "number",
                         "maximum": 10,
-                        "minimum": 5,
-                        "type": "number"
+                        "minimum": 5
                       }
                     }
                   ],
@@ -673,9 +634,9 @@ namespace Microsoft.OpenApi.Tests.Models
                     "400": {
                       "description": null,
                       "schema": {
+                        "type": "number",
                         "maximum": 10,
-                        "minimum": 5,
-                        "type": "number"
+                        "minimum": 5
                       }
                     }
                   },
@@ -702,7 +663,6 @@ namespace Microsoft.OpenApi.Tests.Models
                 """
                 {
                   "tags": [
-                    "tagName1",
                     "tagId1"
                   ],
                   "summary": "summary1",
@@ -733,9 +693,9 @@ namespace Microsoft.OpenApi.Tests.Models
                       "description": "description2",
                       "required": true,
                       "schema": {
+                        "type": "number",
                         "maximum": 10,
-                        "minimum": 5,
-                        "type": "number"
+                        "minimum": 5
                       }
                     }
                   ],
@@ -746,9 +706,9 @@ namespace Microsoft.OpenApi.Tests.Models
                     "400": {
                       "description": null,
                       "schema": {
+                        "type": "number",
                         "maximum": 10,
-                        "minimum": 5,
-                        "type": "number"
+                        "minimum": 5
                       }
                     }
                   },
@@ -863,6 +823,27 @@ namespace Microsoft.OpenApi.Tests.Models
                 // Assert
                 actual.Should().Be(expected);
             }
+        }
+
+        [Fact]
+        public void OpenApiOperationCopyConstructorWithAnnotationsSucceeds()
+        {
+            var baseOperation = new OpenApiOperation
+            {
+                Annotations = new Dictionary<string, object>
+                {
+                    ["key1"] = "value1",
+                    ["key2"] = 2
+                }
+            };
+
+            var actualOperation = new OpenApiOperation(baseOperation);
+
+            Assert.Equal(baseOperation.Annotations["key1"], actualOperation.Annotations["key1"]);
+
+            baseOperation.Annotations["key1"] = "value2";
+
+            Assert.NotEqual(baseOperation.Annotations["key1"], actualOperation.Annotations["key1"]);
         }
     }
 }

@@ -8,11 +8,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
 using Microsoft.OpenApi.Writers;
-using Newtonsoft.Json;
 using Xunit;
 
 namespace Microsoft.OpenApi.Tests.Writers
@@ -20,15 +23,14 @@ namespace Microsoft.OpenApi.Tests.Writers
     [Collection("DefaultSettings")]
     public class OpenApiJsonWriterTests
     {
-        static bool[] shouldProduceTerseOutputValues = new[] { true, false };
+        static bool[] shouldProduceTerseOutputValues = [true, false];
 
         public static IEnumerable<object[]> WriteStringListAsJsonShouldMatchExpectedTestCases()
         {
             return
                 from input in new[]
                 {
-                    new[]
-                    {
+                    [
                         "string1",
                         "string2",
                         "string3",
@@ -37,7 +39,7 @@ namespace Microsoft.OpenApi.Tests.Writers
                         "string6",
                         "string7",
                         "string8"
-                    },
+                    ],
                     new[] {"string1", "string1", "string1", "string1"}
                 }
                 from shouldBeTerse in shouldProduceTerseOutputValues
@@ -62,9 +64,9 @@ namespace Microsoft.OpenApi.Tests.Writers
             writer.WriteEndArray();
             writer.Flush();
 
-            var parsedObject = JsonConvert.DeserializeObject(outputString.GetStringBuilder().ToString());
+            var parsedObject = JsonSerializer.Deserialize<List<string>>(outputString.GetStringBuilder().ToString());
             var expectedObject =
-                JsonConvert.DeserializeObject(JsonConvert.SerializeObject(new List<string>(stringValues)));
+                JsonSerializer.Deserialize<List<string>>(JsonSerializer.Serialize(new List<string>(stringValues)));
 
             // Assert
             parsedObject.Should().BeEquivalentTo(expectedObject);
@@ -222,17 +224,17 @@ namespace Microsoft.OpenApi.Tests.Writers
         public void WriteMapAsJsonShouldMatchExpected(IDictionary<string, object> inputMap, bool produceTerseOutput)
         {
             // Arrange
-            var outputString = new StringWriter(CultureInfo.InvariantCulture);
+            using var outputString = new StringWriter(CultureInfo.InvariantCulture);
             var writer = new OpenApiJsonWriter(outputString, new() { Terse = produceTerseOutput });
 
             // Act
             WriteValueRecursive(writer, inputMap);
 
-            var parsedObject = JsonConvert.DeserializeObject(outputString.GetStringBuilder().ToString());
-            var expectedObject = JsonConvert.DeserializeObject(JsonConvert.SerializeObject(inputMap));
+            using var parsedObject = JsonDocument.Parse(outputString.GetStringBuilder().ToString());
+            using var expectedObject = JsonDocument.Parse(JsonSerializer.Serialize(inputMap, _jsonSerializerOptions.Value));
 
             // Assert
-            parsedObject.Should().BeEquivalentTo(expectedObject);
+            Assert.True(JsonElement.DeepEquals(parsedObject.RootElement, expectedObject.RootElement));
         }
 
         public static IEnumerable<object[]> WriteDateTimeAsJsonTestCases()
@@ -248,6 +250,57 @@ namespace Microsoft.OpenApi.Tests.Writers
                 select new object[] { input, shouldBeTerse };
         }
 
+        public class CustomDateTimeOffsetConverter : JsonConverter<DateTimeOffset>
+        {
+            public CustomDateTimeOffsetConverter(string format)
+            {
+                ArgumentException.ThrowIfNullOrEmpty(format);
+                Format = format;
+            }
+
+            public string Format { get; }
+
+            public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                return DateTime.ParseExact(reader.GetString(), Format, CultureInfo.InvariantCulture);
+            }
+
+            public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
+            {
+                writer.WriteStringValue(value.ToString(Format));
+            }
+        }
+        public class CustomDateTimeConverter : JsonConverter<DateTime>
+        {
+            public CustomDateTimeConverter(string format)
+            {
+                ArgumentException.ThrowIfNullOrEmpty(format);
+                Format = format;
+            }
+
+            public string Format { get; }
+
+            public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            {
+                return DateTime.ParseExact(reader.GetString(), Format, CultureInfo.InvariantCulture);
+            }
+
+            public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+            {
+                writer.WriteStringValue(value.ToString(Format));
+            }
+        }
+        private static readonly Lazy<JsonSerializerOptions> _jsonSerializerOptions = new(() =>
+        {
+            var options = new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            options.Converters.Add(new CustomDateTimeOffsetConverter("yyyy-MM-ddTHH:mm:ss.fffffffK"));
+            options.Converters.Add(new CustomDateTimeConverter("yyyy-MM-ddTHH:mm:ss.fffffffK"));
+            return options;
+        });
+
         [Theory]
         [MemberData(nameof(WriteDateTimeAsJsonTestCases))]
         public void WriteDateTimeAsJsonShouldMatchExpected(DateTimeOffset dateTimeOffset, bool produceTerseOutput)
@@ -260,10 +313,7 @@ namespace Microsoft.OpenApi.Tests.Writers
             writer.WriteValue(dateTimeOffset);
 
             var writtenString = outputString.GetStringBuilder().ToString();
-            var expectedString = JsonConvert.SerializeObject(dateTimeOffset, new JsonSerializerSettings
-            {
-                DateFormatString = "yyyy-MM-ddTHH:mm:ss.fffffffK",
-            });
+            var expectedString = JsonSerializer.Serialize(dateTimeOffset, _jsonSerializerOptions.Value);
 
             // Assert
             writtenString.Should().Be(expectedString);
@@ -275,10 +325,11 @@ namespace Microsoft.OpenApi.Tests.Writers
             // Arrange
             var schema = new OpenApiSchema
             {
-                Enum = new List<IOpenApiAny> {
-                        new OpenApiDouble(double.NaN),
-                        new OpenApiDouble(double.PositiveInfinity),
-                        new OpenApiDouble(double.NegativeInfinity) 
+                Enum = new List<JsonNode>
+                {
+                    new OpenApiAny("NaN").Node,
+                    new OpenApiAny("Infinity").Node,
+                    new OpenApiAny("-Infinity").Node
                 }
             };
 
